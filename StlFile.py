@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 
 class StlFile:
@@ -15,16 +16,39 @@ class StlFile:
         else:
             return "Ascii"
 
-    def content(self):
+    def text(self):
         if self.format() == "Binary":
             return open(self.path, "rb").read()
         else:
             return open(self.path, "r").read()
 
-    def mesh(self):
+    def data(self):
+        text = self.text()
         if self.format() == "Ascii":
-            ## Partie à coder
-            pass
+            list = text.split('\n')
+            list = [x for x in list if 'vertex' in x]
+            list = [x.split(' ') for x in list]
+            for i in range(len(list)):
+                list[i]=[float(x) for x in list[i] if '.' in x]
+            array = np.asarray(list)
+            return array
         else:
-            ## Partie à coder
-            pass
+            return text
+
+    def vertices(self):
+        return np.unique(self.data(), axis = 0)
+
+    def verticesNumber(self):
+        return np.shape(self.vertices())[0]
+
+    def facesNumber(self):
+        return (np.shape(self.data())[0])//3
+
+    def faces(self):
+        array = np.zeros((self.facesNumber(), 3), dtype=np.ndarray)
+        data = self.data()
+        for i in range(np.shape(array)[0]):
+            array[i, 0] = data[i]
+            array[i, 1] = data[i+1]
+            array[i, 2] = data[i+2]
+        return array
