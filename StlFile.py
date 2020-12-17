@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import math
 
 
 class StlFile:
@@ -65,7 +66,12 @@ class Point:
         self.z = z
 
     def coordinates(self):
-        return self.x, self.y, self.z
+        array = np.zeros(3, dtype=float)
+        array[0] = self.x
+        array[1] = self.y
+        array[2] = self.z
+        return array     
+
 
 class Vector:
     def __init__(self, x, y, z):
@@ -78,6 +84,15 @@ class Segment:
         self.Point1 = Point1
         self.Point2 = Point2
 
+    def vector(self):
+        Coor1 = self.Point1.coordinates()
+        Coor2 = self.Point2.coordinates()
+        x = Coor1[0]-Coor2[0]
+        y = Coor1[1]-Coor2[1]
+        z = Coor1[2]-Coor2[2]
+        return np.array([x, y, z])
+        
+
 class Face:
     def __init__(self, Point1, Point2, Point3):
         self.Point1 = Point1
@@ -85,7 +100,31 @@ class Face:
         self.Point3 = Point3
 
     def points(self):
-        return self.Point1, self.Point2, self.Point3
+        array = np.zeros(3, dtype=Point)
+        array[0] = self.Point1
+        array[1] = self.Point2
+        array[2] = self.Point3
+        return array 
 
     def coordinates(self):
-        return self.Point1.coordinates(), self.Point2.coordinates(), self.Point3.coordinates()
+        array = np.zeros((3,3), dtype=float)
+        array[0] = self.Point1.coordinates()
+        array[1] = self.Point2.coordinates()
+        array[2] = self.Point3.coordinates()
+        return array
+
+    def edges(self):
+        array = np.zeros(3, dtype=Segment)
+        array[0] = Segment(self.Point1, self.Point2)
+        array[1] = Segment(self.Point2, self.Point3)
+        array[2] = Segment(self.Point3, self.Point1)
+        return array
+
+    def area(self):
+        vec1 = self.edges()[1].vector()
+        vec2 = self.edges()[2].vector()
+        area = np.linalg.norm(np.cross(vec1, vec2))
+        return area
+
+    def isValid(self):
+        return (self.area() != 0.0)
