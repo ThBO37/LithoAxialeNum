@@ -3,7 +3,7 @@ import numpy as np
 import math
 
 
-class StlFile:
+class Mesh:
     def __init__(self, path):
         self.path = path
 
@@ -70,15 +70,18 @@ class Point:
         array[0] = self.x
         array[1] = self.y
         array[2] = self.z
-        return array     
+        return array
 
-
-class Vector:
-    def __init__(self, x, y, z):
-        self.x = x
-        self.y = y
-        self.z = z
-
+    def isInsideFace(self, face):
+        Point1 = face.points()[0]
+        Point2 = face.points()[1]
+        Point3 = face.points()[2]
+        Triangle0 = Face(Point1, Point2, Point3)
+        Triangle1 = Face(self, Point1, Point2)
+        Triangle2 = Face(self, Point1, Point3)
+        Triangle3 = Face(self, Point2, Point3)
+        return Triangle0.area() == Triangle1.area()+Triangle2.area()+Triangle3.area()
+    
 class Segment:
     def __init__(self, Point1, Point2):
         self.Point1 = Point1
@@ -123,8 +126,16 @@ class Face:
     def area(self):
         vec1 = self.edges()[1].vector()
         vec2 = self.edges()[2].vector()
-        area = np.linalg.norm(np.cross(vec1, vec2))
+        area = 0.5*np.linalg.norm(np.cross(vec1, vec2))
         return area
 
     def isValid(self):
         return (self.area() != 0.0)
+
+    def point(self):
+        return self.Point1()
+
+    def normal(self):
+        vec1 = self.edges()[1].vector()
+        vec2 = self.edges()[2].vector()
+        return np.cross(vec1, vec2)
