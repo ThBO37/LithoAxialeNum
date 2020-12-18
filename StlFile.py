@@ -2,6 +2,7 @@ import os
 import numpy as np
 import math
 
+## @TimSC - line-plane-collision.py
 
 class Mesh:
     def __init__(self, path):
@@ -80,7 +81,7 @@ class Point:
         Triangle1 = Face(self, Point1, Point2)
         Triangle2 = Face(self, Point1, Point3)
         Triangle3 = Face(self, Point2, Point3)
-        return Triangle0.area() == Triangle1.area()+Triangle2.area()+Triangle3.area()
+        return round(Triangle0.area(), 8) ==  round(Triangle1.area()+Triangle2.area()+Triangle3.area(), 8)
     
 class Line:
     def __init__(self, Point1, Point2):
@@ -135,7 +136,7 @@ class Face:
         return (self.area() != 0.0)
 
     def point(self):
-        return self.Point1()
+        return self.Point1
 
     def normal(self):
         vec1 = self.edges()[1].vector()
@@ -145,4 +146,21 @@ class Face:
     def lineIntersection(self, Line):
         planeNormal = self.normal()
         planePoint = self.point().coordinates()
-        return planeNormal, planePoint
+        rayDirection = Line.vector()
+        rayPoint = Line.point().coordinates()
+        epsilon=1e-6
+
+        ndotu = planeNormal.dot(rayDirection)
+        if abs(ndotu) < epsilon:
+            raise RuntimeError("no intersection or line is within plane")
+
+        w = rayPoint - planePoint
+        si = -planeNormal.dot(w) / ndotu
+        Psi = w + si * rayDirection + planePoint
+
+        Intersection = Point(Psi[0], Psi[1], Psi[2])
+        return Intersection
+
+    def intersectionInFace(self, Line):
+        interPoint = self.lineIntersection(Line)
+        return interPoint.isInsideFace(self)
