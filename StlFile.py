@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 class Mesh:
     def __init__(self, path):
         self.path = path
+        self.raw = self.raw()
+        self.center()
 
     def raw(self):
         text = open(self.path, "r").read()
@@ -19,11 +21,11 @@ class Mesh:
         return array
 
     def points(self):
-        raw = np.unique(self.raw(), axis=0)
+        raw = np.unique(self.raw, axis=0)
         return np.array([Point(i[0],i[1],i[2]) for i in raw])
 
     def triangles(self):
-        raw = self.raw()
+        raw = self.raw
         points = np.array([Point(i[0],i[1],i[2]) for i in raw])
         return np.array([Triangle(points[3*i], points[3*i+1], points[3*i+2]) for i in range(np.shape(points)[0]//3)])
 
@@ -35,14 +37,6 @@ class Mesh:
             list.append(Line(i.Point2, i.Point3))
             list.append(Line(i.Point1, i.Point3))
         return np.asarray(list)
-
-    def show(self):
-        t = self.triangles()
-        triangles = [((i.Point1.x, i.Point1.y, i.Point1.z), (i.Point2.x, i.Point2.y, i.Point2.z), (i.Point3.x, i.Point3.y, i.Point3.z)) for i in t]
-        fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        ax.add_collection(Poly3DCollection(triangles, facecolors='w', edgecolors='black', linewidths=1))
-        plt.show()
 
     def massProperties(self):
         # Inspired by https://www.geometrictools.com/Documentation/PolyhedralMassProperties.pdf
@@ -102,19 +96,99 @@ class Mesh:
 
         return volume, cog, inertia
 
+    def show(self):
+        t = self.triangles()
+        triangles = [((i.Point1.x, i.Point1.y, i.Point1.z), (i.Point2.x, i.Point2.y, i.Point2.z), (i.Point3.x, i.Point3.y, i.Point3.z)) for i in t]
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.add_collection(Poly3DCollection(triangles, facecolors='w', edgecolors='black', linewidths=1))
+        max = self.maxCoordinates()
+        ax.set_xlim3d(-max, max)
+        ax.set_ylim3d(-max, max)
+        ax.set_zlim3d(-max, max)
+        plt.show()
+
+    def maxCoordinates(self):
+        raw = self.raw
+        x = np.array([i[0] for i in raw])
+        y = np.array([i[1] for i in raw])
+        z = np.array([i[2] for i in raw])
+        xmin, xmax = np.amin(x), np.amax(x)
+        ymin, ymax = np.amin(y), np.amax(y)
+        zmin, zmax = np.amin(z), np.amax(z)
+        return abs(max([xmin, xmax, ymin, ymax, zmin, zmax], key=abs))
+
+    def translate(self, translation):
+        self.raw += translation
+
+    def center(self):
+        self.raw -= self.massProperties()[1]
+
+    def slice(self, z):
+        tri = [i for i in self.triangles() if i.zExtremums()[0]<=z<=i.zExtremums()[1]]
+        return [i.zIntersection(z) for i in tri]
+    
+    def showSlice(self, z):
+        lines = self.slice(z)
+        for i in lines:
+            plt.plot([i.Point1.x, i.Point2.x], [i.Point1.y, i.Point2.y], c='blue')
+        plt.axis('equal')
+        plt.show()
+
+
 class Point:
     def __init__(self, x: float, y: float, z: float):
         self.x = x
         self.y = y
         self.z = z
 
+    def coordinates(self):
+        return np.array([self.x, self.y, self.z])
+
 class Line:
     def __init__(self, Point1: Point, Point2: Point):
         self.Point1 = Point1
         self.Point2 = Point2
+
+    def vector(self):
+        x = self.Point2.x-self.Point1.x
+        y = self.Point2.y-self.Point1.y
+        z = self.Point2.z-self.Point1.z
+        return np.array([x, y, z])/np.linalg.norm(np.array([x, y, z]))
+
+    def zIntersection(self, z):
+        # Inspired by https://rosettacode.org/wiki/Find_the_intersection_of_a_line_with_a_plane#Python
+        planeNormal = np.array([0,0,1])
+        planePoint = np.array([0,0,z])
+        rayDirection = self.vector()
+        rayPoint = self.Point1.coordinates()
+        epsilon = 1e-6
+
+        ndotu = planeNormal.dot(rayDirection)
+        if abs(ndotu) < epsilon:
+            return Point(1e99,1e99,1e99)
+
+        w = rayPoint - planePoint
+        si = -planeNormal.dot(w) / ndotu
+        Psi = w + si * rayDirection + planePoint
+        return Point(Psi[0], Psi[1], Psi[2])
+    
+    def hasIntersection(self, z):
+        return (self.Point1.z>z and self.Point2.z<z)^(self.Point1.z<z and self.Point2.z>z)
 
 class Triangle:
     def __init__(self, Point1: Point, Point2: Point, Point3: Point):
         self.Point1 = Point1
         self.Point2 = Point2
         self.Point3 = Point3
+
+    def edges(self):
+        return Line(self.Point1, self.Point2), Line(self.Point1, self.Point3), Line(self.Point3, self.Point2)
+
+    def zExtremums(self):
+        return min(self.Point1.z, self.Point2.z, self.Point3.z), max(self.Point1.z, self.Point2.z, self.Point3.z)
+    
+    def zIntersection(self, z):
+        e = self.edges()
+        p = [i.zIntersection(z) for i in e if i.hasIntersection(z)]
+        return Line(p[0], p[1])
