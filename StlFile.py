@@ -102,21 +102,7 @@ class Mesh:
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         ax.add_collection(Poly3DCollection(triangles, facecolors='w', edgecolors='black', linewidths=1))
-        max = self.maxCoordinates()
-        ax.set_xlim3d(-max, max)
-        ax.set_ylim3d(-max, max)
-        ax.set_zlim3d(-max, max)
         plt.show()
-
-    def maxCoordinates(self):
-        raw = self.raw
-        x = np.array([i[0] for i in raw])
-        y = np.array([i[1] for i in raw])
-        z = np.array([i[2] for i in raw])
-        xmin, xmax = np.amin(x), np.amax(x)
-        ymin, ymax = np.amin(y), np.amax(y)
-        zmin, zmax = np.amin(z), np.amax(z)
-        return abs(max([xmin, xmax, ymin, ymax, zmin, zmax], key=abs))
 
     def translate(self, translation):
         self.raw += translation
@@ -127,14 +113,26 @@ class Mesh:
     def slice(self, z):
         tri = [i for i in self.triangles() if i.zExtremums()[0]<=z<=i.zExtremums()[1]]
         return [i.zIntersection(z) for i in tri]
-    
+
     def showSlice(self, z):
         lines = self.slice(z)
         for i in lines:
             plt.plot([i.Point1.x, i.Point2.x], [i.Point1.y, i.Point2.y], c='blue')
         plt.axis('equal')
         plt.show()
-
+        
+    def maxRadius(self):
+        radii = np.array([i.cylindrical()[0] for i in self.points()])
+        return np.amax(radii)
+    
+    def maxCoordinates(self):
+        x = np.array([i.cartesian()[0] for i in self.points()])
+        y = np.array([i.cartesian()[1] for i in self.points()])
+        z = np.array([i.cartesian()[2] for i in self.points()])
+        xmin, xmax = np.amin(x), np.amax(x)
+        ymin, ymax = np.amin(y), np.amax(y)
+        zmin, zmax = np.amin(z), np.amax(z)
+        return xmin, xmax, ymin, ymax, zmin, zmax
 
 class Point:
     def __init__(self, x: float, y: float, z: float):
@@ -142,8 +140,14 @@ class Point:
         self.y = y
         self.z = z
 
-    def coordinates(self):
+    def cartesian(self):
         return np.array([self.x, self.y, self.z])
+    
+    def cylindrical(self):
+        x, y, z = self.x, self.y, self.z
+        r = (x**2+y**2)**(1/2)
+        theta = np.arctan(y/x)
+        return np.array([r, theta, z])
 
 class Line:
     def __init__(self, Point1: Point, Point2: Point):
@@ -161,7 +165,7 @@ class Line:
         planeNormal = np.array([0,0,1])
         planePoint = np.array([0,0,z])
         rayDirection = self.vector()
-        rayPoint = self.Point1.coordinates()
+        rayPoint = self.Point1.cartesian()
         epsilon = 1e-6
 
         ndotu = planeNormal.dot(rayDirection)
@@ -173,7 +177,10 @@ class Line:
         Psi = w + si * rayDirection + planePoint
         return Point(Psi[0], Psi[1], Psi[2])
     
-    def hasIntersection(self, z):
+    def hasXIntersection(self, x):
+        return (self.Point1.x>x and self.Point2.x<x)^(self.Point1.x<x and self.Point2.x>x)
+
+    def hasZIntersection(self, z):
         return (self.Point1.z>z and self.Point2.z<z)^(self.Point1.z<z and self.Point2.z>z)
 
 class Triangle:
@@ -187,8 +194,75 @@ class Triangle:
 
     def zExtremums(self):
         return min(self.Point1.z, self.Point2.z, self.Point3.z), max(self.Point1.z, self.Point2.z, self.Point3.z)
-    
+
     def zIntersection(self, z):
         e = self.edges()
-        p = [i.zIntersection(z) for i in e if i.hasIntersection(z)]
+        p = [i.zIntersection(z) for i in e if i.hasZIntersection(z)]
         return Line(p[0], p[1])
+
+class Slice:
+    def __init__(self, Mesh, z):
+        self.Mesh = Mesh
+        self.z = z
+    
+    def lines(self):
+        tri = [i for i in self.Mesh.triangles() if i.zExtremums()[0]<=self.z<=i.zExtremums()[1]]
+        return [i.zIntersection(self.z) for i in tri]
+    
+    def show(self):
+        lines = self.lines()
+        for i in lines:
+            plt.plot([i.Point1.x, i.Point2.x], [i.Point1.y, i.Point2.y], c='blue')
+        plt.axis('equal')
+        plt.show()
+    
+    def radon(self, r, res):
+        Xlist = (np.linspace(-r, r, int(2*r/res))).tolist()
+        
+        def intersectedLines(x, r):
+            L = [i for i in self.lines() if i.hasXIntersection(x)]
+            return L
+        
+        def intersection(Line1, Line2):
+            # Inspired by https://rosettacode.org/wiki/Find_the_intersection_of_two_lines#Python
+            Ax1, Ay1 = Line1.Point1.x, Line1.Point1.y
+            Ax2, Ay2 = Line1.Point2.x, Line1.Point2.y
+            Bx1, By1 = Line2.Point1.x, Line2.Point1.y
+            Bx2, By2 = Line2.Point2.x, Line2.Point2.y
+            d = (By2 - By1) * (Ax2 - Ax1) - (Bx2 - Bx1) * (Ay2 - Ay1)
+            if d:
+                uA = ((Bx2 - Bx1) * (Ay1 - By1) - (By2 - By1) * (Ax1 - Bx1)) / d
+                uB = ((Ax2 - Ax1) * (Ay1 - By1) - (Ay2 - Ay1) * (Ax1 - Bx1)) / d
+            else:
+                return
+            if not(0 <= uA <= 1 and 0 <= uB <= 1):
+                return
+            x = Ax1 + uA * (Ax2 - Ax1)
+            y = Ay1 + uA * (Ay2 - Ay1)
+        
+            return Point(x, y, self.z)
+        
+        def length(x, r):
+            ray = Line(Point(x, -r, self.z), Point(x, r, self.z))
+            lines = intersectedLines(x, r)
+            y = [intersection(i, ray).y for i in lines]
+            y.sort()
+            l = [y[2*i+1]-y[2*i] for i in range(int(len(y)/2))]
+            return sum(l)
+        
+        Rlist = [length(i, r) for i in Xlist]
+        
+        return Rlist
+        
+        
+class Transform:
+    def __init__(self, Mesh, Res, nbProj):
+        self.Mesh = Mesh
+        self.Res = Res
+        self.nbProj = nbProj
+    
+    def projShape(self):
+        x = (self.Mesh.maxRadius()*2)//(self.Res)
+        y = (self.Mesh.maxCoordinates()[5]-self.Mesh.maxCoordinates()[4])//(self.Res)
+        w = self.nbProj
+        return x, y, w
