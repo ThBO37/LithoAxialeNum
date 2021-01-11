@@ -1,8 +1,10 @@
-import numpy as np
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import time
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-import matplotlib.pyplot as plt
 
 class Mesh:
     def __init__(self, path):
@@ -107,6 +109,13 @@ class Mesh:
     def translate(self, translation):
         self.raw += translation
 
+    def rotate(self, theta):
+        c = np.cos(theta)
+        s = np.sin(theta)
+        mat = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+        for i in range(np.shape(self.raw)[0]):
+            self.raw[i] = np.matmul(mat, self.raw[i])
+
     def center(self):
         self.raw -= self.massProperties()[1]
 
@@ -120,11 +129,11 @@ class Mesh:
             plt.plot([i.Point1.x, i.Point2.x], [i.Point1.y, i.Point2.y], c='blue')
         plt.axis('equal')
         plt.show()
-        
+
     def maxRadius(self):
         radii = np.array([i.cylindrical()[0] for i in self.points()])
         return np.amax(radii)
-    
+
     def maxCoordinates(self):
         x = np.array([i.cartesian()[0] for i in self.points()])
         y = np.array([i.cartesian()[1] for i in self.points()])
@@ -142,7 +151,7 @@ class Point:
 
     def cartesian(self):
         return np.array([self.x, self.y, self.z])
-    
+
     def cylindrical(self):
         x, y, z = self.x, self.y, self.z
         r = (x**2+y**2)**(1/2)
@@ -176,7 +185,7 @@ class Line:
         si = -planeNormal.dot(w) / ndotu
         Psi = w + si * rayDirection + planePoint
         return Point(Psi[0], Psi[1], Psi[2])
-    
+
     def hasXIntersection(self, x):
         return (self.Point1.x>x and self.Point2.x<x)^(self.Point1.x<x and self.Point2.x>x)
 
@@ -204,25 +213,25 @@ class Slice:
     def __init__(self, Mesh, z):
         self.Mesh = Mesh
         self.z = z
-    
+
     def lines(self):
         tri = [i for i in self.Mesh.triangles() if i.zExtremums()[0]<=self.z<=i.zExtremums()[1]]
         return [i.zIntersection(self.z) for i in tri]
-    
+
     def show(self):
         lines = self.lines()
         for i in lines:
             plt.plot([i.Point1.x, i.Point2.x], [i.Point1.y, i.Point2.y], c='blue')
         plt.axis('equal')
         plt.show()
-    
+
     def radon(self, r, res):
-        Xlist = (np.linspace(-r, r, int(2*r/res))).tolist()
-        
+        Xlist = (np.linspace(-r/2, r/2, int(2*r/res))).tolist()
+
         def intersectedLines(x, r):
             L = [i for i in self.lines() if i.hasXIntersection(x)]
             return L
-        
+
         def intersection(Line1, Line2):
             # Inspired by https://rosettacode.org/wiki/Find_the_intersection_of_two_lines#Python
             Ax1, Ay1 = Line1.Point1.x, Line1.Point1.y
@@ -239,9 +248,9 @@ class Slice:
                 return
             x = Ax1 + uA * (Ax2 - Ax1)
             y = Ay1 + uA * (Ay2 - Ay1)
-        
+
             return Point(x, y, self.z)
-        
+
         def length(x, r):
             ray = Line(Point(x, -r, self.z), Point(x, r, self.z))
             lines = intersectedLines(x, r)
@@ -249,20 +258,55 @@ class Slice:
             y.sort()
             l = [y[2*i+1]-y[2*i] for i in range(int(len(y)/2))]
             return sum(l)
-        
+
         Rlist = [length(i, r) for i in Xlist]
-        
-        return Rlist
-        
-        
-class Transform:
-    def __init__(self, Mesh, Res, nbProj):
+
+        return np.asarray(Rlist)
+
+    def showRadon(self, r, res):
+        Xlist = (np.linspace(-r, r, int(2*r/res))).tolist()
+        Rlist = (self.radon(r, res)).tolist()
+        plt.plot(Xlist, Rlist)
+        plt.show()
+
+
+class Projection:
+    def __init__(self, Mesh, res):
         self.Mesh = Mesh
-        self.Res = Res
-        self.nbProj = nbProj
-    
-    def projShape(self):
-        x = (self.Mesh.maxRadius()*2)//(self.Res)
-        y = (self.Mesh.maxCoordinates()[5]-self.Mesh.maxCoordinates()[4])//(self.Res)
-        w = self.nbProj
-        return x, y, w
+        self.res = res
+
+    def data(self):
+        min, max = self.Mesh.maxCoordinates()[4], self.Mesh.maxCoordinates()[5]
+        r = self.Mesh.maxRadius()
+        Zlist = (np.linspace(max, min, int((max-min)/self.res))).tolist()
+        Zlist.remove(Zlist[0])
+        Zlist.remove(Zlist[-1])
+        tab = np.array([Slice(self.Mesh, i).radon(r, self.res) for i in Zlist])
+
+        def normalize(array):
+            max = array.max()
+            return array/max
+
+        return normalize(tab)
+
+    def saveImage(self, path):
+        data = self.data()
+        plt.imsave(path, data, format="png", cmap="hot")
+
+def GenerateProjections(MeshPath, Resolution, nbProjections, DistPath):
+    start_time = time.time()
+    m = Mesh(MeshPath)
+    r = Resolution
+    t = 2*np.pi/nbProjections
+    i = 0
+    while i<2*np.pi:
+        P = Projection(m, r)
+        savePath = DistPath+'\\Proj'+str(int(i//t))+'.png'
+        P.saveImage(savePath)
+        m.rotate(t)
+        i += t
+    end_time = time.time()
+    elapsed = end_time-start_time
+    file = open(DistPath+"\\time.txt", "a")
+    file.write(str(elapsed))
+    file.close()
