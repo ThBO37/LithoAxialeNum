@@ -1,8 +1,5 @@
 # TIPE : Lithographie axiale numérique
 
-<p align="center">
-  > *"3D printing that has the potential to revolutionize the way we make almost everything."* - __Barack Obama__
-
 <!-- TABLE OF CONTENTS -->
 <details open="open">
   <summary>Sommaire</summary>
