@@ -1,1 +1,1 @@
-# TIPE_Photopolymerisation
+# TIPE : Lithographie axiale numérique
