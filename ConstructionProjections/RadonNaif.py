@@ -226,7 +226,7 @@ class Slice:
         plt.show()
 
     def radon(self, r, res):
-        Xlist = (np.linspace(-r/2, r/2, int(2*r/res))).tolist()
+        Xlist = (np.linspace(-r, r, int(2*r/res))).tolist()
 
         def intersectedLines(x, r):
             L = [i for i in self.lines() if i.hasXIntersection(x)]
