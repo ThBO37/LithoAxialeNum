@@ -15,6 +15,7 @@
 ## Motivations du sujet
 
 ## Ancrage au thème
+Nombre de spécialistes de l’économie s’accordent à dire qu’un modèle de production local et décentralisé pourrait constituer la base de notre économie à venir, et la fabrication additive la pierre angulaire de ce nouveau modèle. Nous avons donc choisi d’étudier cette technologie pour les changements sociétaux profonds qu’elle peut apporter.
 
 ## Mise en cohérence des objectifs
 
