@@ -31,7 +31,7 @@
 </div>
 <div align="justify">
 	De nouveaux procédés basés sur une fabrication volumétrique apportent des solutions à l’anisotropie tout en améliorant considérablement la vitesse de production. L’utilisation du phénomène de photopolymérisation, qui, sous un éclairage lumineux à une longueur d’onde donnée, transforme une résine liquide formée de monomères en un solide composé d’un assemblage de ces monomères : un polymère [ref], offre la possibilité de former des pièces dans la masse. A l’aide de projections 2D de l’objet 3D souhaité à 360°, on peut éclairer une cuve circulaire de résine en rotation par rapport à la source lumineuse de manière à ce que chaque point précis du volume de travail soit éclairé suffisamment pour se solidifier. Pour générer ces projections ….
-</div>
+<br/>
 <div align="justify">
  Afin de pouvoir exploiter ce phénomène, il est nécessaire d’établir un modèle cinétique de la réaction chimique, afin d’adapter la vitesse de rotation de la cuve, la puissance d’éclairement, et de s’assurer d’obtenir une pièce finale aux propriétés mécaniques intéressantes.
 
